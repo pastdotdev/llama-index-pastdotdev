@@ -1,0 +1,63 @@
+# Publishes both packages to PyPI when a tag v* is pushed, for example v0.1.0.
+# It uses PyPI Trusted Publishing (OpenID Connect): no token and no secret.
+# Each PyPI project trusts this repository and this workflow file, with no environment.
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: The tag matches both package versions
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for package in llama-index-memory-pastdotdev llama-index-tools-pastdotdev; do
+            version=$(python3 -c "import tomllib, sys; print(tomllib.load(open(sys.argv[1], 'rb'))['project']['version'])" "$package/pyproject.toml")
+            if [ "$version" != "$tag" ]; then
+              echo "::error::$package is version $version, but the tag is v$tag"
+              exit 1
+            fi
+          done
+
+      - name: Test and build
+        run: |
+          for package in llama-index-memory-pastdotdev llama-index-tools-pastdotdev; do
+            (cd "$package" && uv run --locked -- pytest && uv build --out-dir "../dist/$package")
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish llama-index-memory-pastdotdev
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/llama-index-memory-pastdotdev/
+
+      - name: Publish llama-index-tools-pastdotdev
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/llama-index-tools-pastdotdev/
