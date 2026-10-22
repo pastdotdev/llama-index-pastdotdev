@@ -56,8 +56,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/llama-index-memory-pastdotdev/
+          skip-existing: true
 
       - name: Publish llama-index-tools-pastdotdev
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/llama-index-tools-pastdotdev/
+          skip-existing: true
